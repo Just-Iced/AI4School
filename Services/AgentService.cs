@@ -121,7 +121,7 @@ public class AgentService {
     }
 
     private CopilotClient CreateCopilotClient() {
-        var githubToken = _configuration["Copilot:GitHubToken"];
+        var githubToken = _configuration["GitHubToken"];
         if (string.IsNullOrWhiteSpace(githubToken)) {
             throw new InvalidOperationException(
                 "Configure a GitHub PAT with the Copilot:GitHubToken setting (environment variable Copilot__GitHubToken).");
