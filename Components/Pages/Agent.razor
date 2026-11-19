@@ -1,0 +1,103 @@
+@page "/agent"
+@rendermode InteractiveServer
+@using AI4SchoolAgent.Services
+@inject AgentService AgentService
+
+<PageTitle>School AI Agent</PageTitle>
+
+<h3>School Administration AI Agent</h3>
+
+<div class="mt-3">
+    <label for="model-select" class="form-label">Model</label>
+    <select id="model-select" class="form-select" @bind="SelectedModel" disabled="@IsBusy || IsLoadingModels || AvailableModels.Count == 0">
+        @foreach (string model in AvailableModels) {
+            <option value="@model">@model</option>
+        }
+    </select>
+    @if (IsLoadingModels) {
+        <p class="form-text" role="status">Loading available models...</p>
+    } else if (AvailableModels.Count == 0 && string.IsNullOrEmpty(ErrorMessage)) {
+        <p class="form-text">No models are available to this GitHub account.</p>
+    }
+</div>
+
+@if (IsBusy) {
+    <p class="alert alert-info mt-3" role="status">Thinking...</p>
+}
+
+<div class="chat-window">
+    @foreach (var message in Messages) {
+        <div class="message">
+            <b>@message.Role:</b>
+            <div>@message.Content</div>
+        </div>
+    }
+</div>
+
+<div class="mt-3">
+    <InputTextArea class="form-control" rows="4" @bind-Value="Prompt" />
+
+    <button class="btn btn-primary mt-2" @onclick="SendPrompt" disabled="@IsBusy || IsLoadingModels">
+        Ask Agent
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(ErrorMessage)) {
+    <div class="alert alert-danger mt-3" role="alert">@ErrorMessage</div>
+}
+
+@code {
+    string Prompt = "";
+    bool IsBusy;
+    bool IsLoadingModels = true;
+    string? ErrorMessage;
+    string? SelectedModel;
+    List<string> AvailableModels = new();
+    List<ChatMessage> Messages = new();
+
+    protected override async Task OnInitializedAsync() {
+        try {
+            AvailableModels = (await AgentService.GetAvailableModelsAsync()).ToList();
+            SelectedModel = AvailableModels.FirstOrDefault(model =>
+                string.Equals(model, "auto", StringComparison.OrdinalIgnoreCase))
+                ?? AvailableModels.FirstOrDefault();
+        } catch (Exception ex) {
+            ErrorMessage = $"Unable to load available models: {ex.Message}";
+        } finally {
+            IsLoadingModels = false;
+        }
+    }
+
+    async Task SendPrompt() {
+        if (string.IsNullOrWhiteSpace(Prompt) || string.IsNullOrEmpty(SelectedModel))
+            return;
+
+        Messages.Add(new ChatMessage {
+            Role = "User",
+            Content = Prompt
+        });
+
+        IsBusy = true;
+        ErrorMessage = null;
+
+        try {
+            var result = await AgentService.AskAsync(Prompt, SelectedModel);
+
+            Messages.Add(new ChatMessage {
+                Role = "Agent",
+                Content = result
+            });
+
+            Prompt = "";
+        } catch (Exception ex) {
+            ErrorMessage = $"Unable to get a response: {ex.Message}";
+        } finally {
+            IsBusy = false;
+        }
+    }
+
+    class ChatMessage {
+        public string Role { get; set; } = "";
+        public string Content { get; set; } = "";
+    }
+}
