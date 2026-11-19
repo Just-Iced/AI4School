@@ -6,6 +6,7 @@
 appsettings.Development.json
 *.sqlite
 *.db
+.copilot-azure/
 
 # dotenv files
 .env
